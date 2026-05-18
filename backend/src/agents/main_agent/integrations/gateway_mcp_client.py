@@ -62,18 +62,46 @@ class FilteredMCPClient(MCPClient):
         pass
 
     def list_tools_sync(self, *args, **kwargs):
-        """List tools from Gateway and filter based on enabled_tool_ids."""
+        """List tools from Gateway and filter based on enabled_tool_ids.
+
+        Matching strategy (tried in order for each enabled_id / tool pair):
+        1. Strip the ``gateway_`` prefix exactly once from the start of
+           ``enabled_id`` and compare to ``tool.tool_name``.  Handles the
+           common case where the catalog entry is ``gateway_<tool_name>``.
+        2. Strip the prefix and check whether ``tool.tool_name`` ends with
+           the stripped value (suffix match).  Handles catalog entries of the
+           form ``gateway_<target>_<tool_name>`` where the gateway returns
+           just ``<tool_name>`` as the tool name.
+        3. Exact full-string match of ``tool.tool_name`` against the
+           ``enabled_id`` (no prefix stripping) — defensive fallback.
+        """
         from strands.types import PaginatedList
+
+        prefix_with_sep = f"{self.prefix}_"
+
+        def _matches(enabled_id: str, tool_name: str) -> bool:
+            # Strip prefix exactly once from the left
+            stripped = (
+                enabled_id[len(prefix_with_sep):]
+                if enabled_id.startswith(prefix_with_sep)
+                else enabled_id
+            )
+            # 1. Exact match after prefix strip
+            if stripped == tool_name:
+                return True
+            # 2. Suffix match — gateway returns <tool_name>, catalog has <target>_<tool_name>
+            if stripped.endswith(f"_{tool_name}"):
+                return True
+            # 3. Full-string fallback
+            if tool_name == enabled_id:
+                return True
+            return False
 
         paginated_result = super().list_tools_sync()
 
         filtered_tools = [
             tool for tool in paginated_result
-            if any(
-                enabled_id.replace(f"{self.prefix}_", "") == tool.tool_name or
-                tool.tool_name in enabled_id
-                for enabled_id in self.enabled_tool_ids
-            )
+            if any(_matches(enabled_id, tool.tool_name) for enabled_id in self.enabled_tool_ids)
         ]
 
         logger.info(f"✅ Filtered {len(filtered_tools)} tools from {len(paginated_result)} available")
@@ -83,33 +111,49 @@ class FilteredMCPClient(MCPClient):
         return PaginatedList(filtered_tools, token=paginated_result.pagination_token)
 
 
-def get_gateway_url_from_ssm(
-    project_name: str = "strands-agent-chatbot",
-    environment: str = "dev",
-    region: str = "us-west-2"
-) -> Optional[str]:
-    """
-    Retrieve Gateway URL from SSM Parameter Store.
+def get_gateway_url() -> Optional[str]:
+    """Resolve the Gateway URL using a two-step lookup.
 
-    Args:
-        project_name: Project name for SSM parameter path
-        environment: Environment name (dev, prod, etc.)
-        region: AWS region
+    Resolution order:
+    1. ``AGENTCORE_GATEWAY_URL`` env var — set this for local development or
+       when you want to bypass SSM (e.g. in a Docker Compose override).
+    2. SSM Parameter Store — the path is read from ``AGENTCORE_GATEWAY_SSM_PATH``,
+       which the CDK inference-api stack sets to ``/{projectPrefix}/gateway/url``.
 
-    Returns:
-        Gateway URL or None if not found
+    Returns None if neither source is available; gateway tools are then skipped
+    gracefully.
     """
+    # 1. Direct env var — fastest path, works without AWS credentials for local dev
+    direct_url = os.environ.get(EnvVars.GATEWAY_URL)
+    if direct_url:
+        logger.info(f"✅ Gateway URL from AGENTCORE_GATEWAY_URL env var: {direct_url}")
+        return direct_url
+
+    # 2. SSM Parameter Store
+    return _get_gateway_url_from_ssm()
+
+
+def _get_gateway_url_from_ssm() -> Optional[str]:
+    """Retrieve the Gateway URL from SSM Parameter Store (internal helper)."""
+    ssm_path = os.environ.get(EnvVars.GATEWAY_SSM_PATH)
+    if not ssm_path:
+        logger.info("AGENTCORE_GATEWAY_URL and AGENTCORE_GATEWAY_SSM_PATH not set — gateway tools disabled")
+        return None
+
+    region = os.environ.get(EnvVars.AWS_REGION, "us-west-2")
     try:
         ssm = boto3.client('ssm', region_name=region)
-        response = ssm.get_parameter(
-            Name=f'/{project_name}/{environment}/mcp/gateway-url'
-        )
+        response = ssm.get_parameter(Name=ssm_path)
         gateway_url = response['Parameter']['Value']
-        logger.info(f"✅ Gateway URL retrieved from SSM: {gateway_url}")
+        logger.info(f"✅ Gateway URL retrieved from SSM ({ssm_path}): {gateway_url}")
         return gateway_url
     except Exception as e:
-        logger.warning(f"⚠️  Failed to get Gateway URL from SSM: {e}")
+        logger.warning(f"⚠️  Failed to get Gateway URL from SSM ({ssm_path}): {e}")
         return None
+
+
+# Keep old name as alias so any external callers aren't broken
+get_gateway_url_from_ssm = get_gateway_url
 
 
 def create_gateway_mcp_client(
@@ -147,9 +191,9 @@ def create_gateway_mcp_client(
         ...     tools = client.list_tools_sync()
         ...     agent = Agent(tools=tools)
     """
-    # Get Gateway URL from SSM if not provided
+    # Get Gateway URL if not provided
     if not gateway_url:
-        gateway_url = get_gateway_url_from_ssm()
+        gateway_url = get_gateway_url()
         if not gateway_url:
             logger.warning("⚠️  Gateway URL not available. Gateway tools will not be loaded.")
             return None
@@ -213,8 +257,8 @@ def create_filtered_gateway_client(
         logger.info("No Gateway tools enabled")
         return None
 
-    # Get Gateway URL from SSM
-    gateway_url = get_gateway_url_from_ssm()
+    # Get Gateway URL
+    gateway_url = get_gateway_url()
     if not gateway_url:
         logger.warning("⚠️  Gateway URL not available. Gateway tools will not be loaded.")
         return None
