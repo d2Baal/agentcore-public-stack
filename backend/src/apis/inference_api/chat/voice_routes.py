@@ -551,6 +551,17 @@ async def _handle_ws_chat(websocket: WebSocket, config_msg: dict) -> None:
         await websocket.close(code=4001, reason="Authentication required")
         return
 
+    # Enrich user with stored profile (email, name, IdP roles) from DynamoDB.
+    # _build_user_from_token only reads JWT claims; for federated users the
+    # access token carries the Cognito provider group (e.g.
+    # "us-west-2_Pool_OktaProvider"), NOT the application roles that were
+    # mapped from the IdP and stored in the Users table at /auth/callback.
+    # Without this enrichment, RBAC resolves against the raw Cognito group
+    # and falls back to the default role, denying model access even for
+    # users whose role has the correct model grants.
+    from apis.shared.auth.dependencies import _enrich_user_from_store
+    await _enrich_user_from_store(user)
+
     try:
         invocation_request = InvocationRequest(**body_data)
     except Exception as exc:
