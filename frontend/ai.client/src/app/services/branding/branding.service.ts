@@ -7,6 +7,8 @@ export interface BrandingColors {
   primary: string;
   secondary: string;
   tertiary: string;
+  sidebar_bg?: string;
+  sidebar_bg_dark?: string;
 }
 
 export interface BrandingConfig {
@@ -64,11 +66,19 @@ export class BrandingService {
     }
     // Override the base color variables; the @theme oklch() expressions
     // derive every shade from these three variables automatically.
+    // Also override structural surface variables so sidenav/topbar background
+    // colors update live without a page reload.
     existing.textContent = `
       :root {
         --color-primary-base: ${colors.primary};
         --color-secondary-base: ${colors.secondary};
         --color-tertiary-base: ${colors.tertiary};
+        --app-sidebar-bg: ${colors.sidebar_bg ?? '#f3f4f6'};
+        --app-topbar-bg: ${colors.sidebar_bg ?? '#f9fafb'};
+      }
+      html.dark {
+        --app-sidebar-bg: ${colors.sidebar_bg_dark ?? '#111827'};
+        --app-topbar-bg: ${colors.sidebar_bg_dark ?? '#111827'};
       }
     `;
   }
