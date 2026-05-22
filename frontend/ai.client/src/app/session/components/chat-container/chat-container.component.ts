@@ -16,6 +16,7 @@ import { AnimatedTextComponent } from '../../../components/animated-text';
 import { ParagraphSkeletonComponent } from '../../../components/paragraph-skeleton';
 import { Topnav } from '../../../components/topnav/topnav';
 import { SidenavService } from '../../../services/sidenav/sidenav.service';
+import { BrandingService } from '../../../services/branding/branding.service';
 import { Assistant } from '../../../assistants/models/assistant.model';
 import { AssistantCardComponent } from '../../../assistants/components/assistant-card.component';
 import { AssistantIndicatorComponent } from '../assistant-indicator/assistant-indicator.component';
@@ -74,6 +75,9 @@ export class ChatContainerComponent {
   protected sidenavService = inject(SidenavService);
   private voiceChatService = inject(VoiceChatService);
   protected readonly isVoiceActive = this.voiceChatService.isVoiceActive;
+  private brandingSvc = inject(BrandingService);
+  protected readonly logoLightSrc = computed(() => this.brandingSvc.logoLightUrl() ?? '/img/logo-light.png');
+  protected readonly logoDarkSrc = computed(() => this.brandingSvc.logoDarkUrl() ?? '/img/logo-dark.png');
 
   // Child component reference for scroll functionality
   private messageListComponent = viewChild(MessageListComponent);

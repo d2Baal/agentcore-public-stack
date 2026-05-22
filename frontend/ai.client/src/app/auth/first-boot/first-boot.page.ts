@@ -1,9 +1,10 @@
-import { Component, signal, ChangeDetectionStrategy, inject, OnInit, OnDestroy } from '@angular/core';
+import { Component, signal, ChangeDetectionStrategy, inject, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router } from '@angular/router';
 import { SidenavService } from '../../services/sidenav/sidenav.service';
 import { SystemService, FirstBootError } from '../../services/system.service';
+import { BrandingService } from '../../services/branding/branding.service';
 
 @Component({
   selector: 'app-first-boot',
@@ -31,11 +32,11 @@ import { SystemService, FirstBootError } from '../../services/system.service';
         <!-- Logo -->
         <div class="mb-8 flex justify-center">
           <img
-            src="/img/logo-light.png"
+            [src]="logoLightSrc()"
             alt="Logo"
             class="size-16 dark:hidden">
           <img
-            src="/img/logo-dark.png"
+            [src]="logoDarkSrc()"
             alt="Logo"
             class="hidden size-16 dark:block">
         </div>
@@ -204,6 +205,10 @@ export class FirstBootPage implements OnInit, OnDestroy {
   private readonly sidenavService = inject(SidenavService);
   private readonly systemService = inject(SystemService);
   private readonly router = inject(Router);
+  private readonly brandingSvc = inject(BrandingService);
+
+  protected readonly logoLightSrc = computed(() => this.brandingSvc.logoLightUrl() ?? '/img/logo-light.png');
+  protected readonly logoDarkSrc = computed(() => this.brandingSvc.logoDarkUrl() ?? '/img/logo-dark.png');
   private readonly fb = inject(FormBuilder);
 
   isSubmitting = signal(false);
