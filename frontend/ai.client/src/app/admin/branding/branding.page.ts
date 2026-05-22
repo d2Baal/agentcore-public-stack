@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { NgIf } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { BrandingService, BrandingColors } from '../../services/branding/branding.service';
+import { ConfigService } from '../../services/config.service';
 
 interface BrandingResponse {
   colors?: { primary: string; secondary: string; tertiary: string };
@@ -15,8 +16,6 @@ interface BrandingResponse {
 }
 
 type AssetType = 'logo_light' | 'logo_dark' | 'favicon';
-
-const API = '/api/admin/branding';
 
 @Component({
   selector: 'app-branding-page',
@@ -118,6 +117,11 @@ const API = '/api/admin/branding';
 export class BrandingPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly brandingSvc = inject(BrandingService);
+  private readonly configService = inject(ConfigService);
+
+  private get api(): string {
+    return `${this.configService.appApiUrl()}/admin/branding`;
+  }
 
   readonly DEFAULT_PRIMARY = '#0033a0';
   readonly DEFAULT_SECONDARY = '#d64309';
@@ -153,7 +157,7 @@ export class BrandingPage implements OnInit {
 
   async ngOnInit(): Promise<void> {
     try {
-      const cfg = await firstValueFrom(this.http.get<BrandingResponse>(API));
+      const cfg = await firstValueFrom(this.http.get<BrandingResponse>(this.api));
       if (cfg.colors) {
         this.primary.set(cfg.colors.primary);
         this.secondary.set(cfg.colors.secondary);
@@ -183,7 +187,7 @@ export class BrandingPage implements OnInit {
       tertiary: this.tertiary(),
     };
     try {
-      await firstValueFrom(this.http.put(API, { colors }));
+      await firstValueFrom(this.http.put(this.api, { colors }));
       this.brandingSvc.applyColors(colors);
       this.colorsSaved.set(true);
       setTimeout(() => this.colorsSaved.set(false), 3000);
@@ -210,7 +214,7 @@ export class BrandingPage implements OnInit {
     try {
       // Step 1: get presigned PUT URL
       const presign = await firstValueFrom(this.http.post<{ presigned_url: string; s3_key: string }>(
-        `${API}/presign-logo`,
+        `${this.api}/presign-logo`,
         { asset_type: assetType, content_type: file.type, filename: file.name },
       ));
       // Step 2: upload directly to S3
@@ -223,7 +227,7 @@ export class BrandingPage implements OnInit {
       const field = assetType === 'logo_light' ? 'logo_light_s3_key'
         : assetType === 'logo_dark' ? 'logo_dark_s3_key' : 'favicon_s3_key';
       const updated = await firstValueFrom(
-        this.http.put<BrandingResponse>(API, { [field]: presign.s3_key })
+        this.http.put<BrandingResponse>(this.api, { [field]: presign.s3_key })
       );
       // Update preview
       if (assetType === 'logo_light') this.logoLightUrl.set(updated.logo_light_url);

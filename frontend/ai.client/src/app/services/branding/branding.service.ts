@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { ConfigService } from '../config.service';
 
 export interface BrandingColors {
   primary: string;
@@ -15,12 +16,12 @@ export interface BrandingConfig {
   faviconUrl?: string;
 }
 
-const API_BASE = '/api';
 const BRANDING_STYLE_ID = 'dynamic-branding';
 
 @Injectable({ providedIn: 'root' })
 export class BrandingService {
   private readonly http = inject(HttpClient);
+  private readonly configService = inject(ConfigService);
   private _config: BrandingConfig = {};
 
   get config(): BrandingConfig { return this._config; }
@@ -30,7 +31,7 @@ export class BrandingService {
   async bootstrap(): Promise<void> {
     try {
       const raw = await firstValueFrom(
-        this.http.get<any>(`${API_BASE}/branding`)
+        this.http.get<any>(`${this.configService.appApiUrl()}/branding`)
       );
       this._config = {
         colors: raw.colors,
