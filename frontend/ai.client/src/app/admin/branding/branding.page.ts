@@ -273,6 +273,8 @@ export class BrandingPage implements OnInit {
       if (assetType === 'logo_light') this.logoLightUrl.set(updated.logo_light_url);
       if (assetType === 'logo_dark') this.logoDarkUrl.set(updated.logo_dark_url);
       if (assetType === 'favicon') this.faviconUrl.set(updated.favicon_url);
+      // Propagate logo URLs into BrandingService so the sidenav updates live
+      this.brandingSvc.applyLogoUrls(updated.logo_light_url, updated.logo_dark_url);
       this.assetSaved.set(assetType);
       setTimeout(() => this.assetSaved.set(null), 3000);
     } catch {

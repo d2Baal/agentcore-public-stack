@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ConfigService } from '../config.service';
@@ -26,6 +26,10 @@ export class BrandingService {
   private readonly configService = inject(ConfigService);
   private _config: BrandingConfig = {};
 
+  /** Reactive logo URL signals — updated at bootstrap and after admin uploads. */
+  readonly logoLightUrl = signal<string | undefined>(undefined);
+  readonly logoDarkUrl = signal<string | undefined>(undefined);
+
   get config(): BrandingConfig { return this._config; }
 
   /** Called once at app startup via APP_INITIALIZER. Failures are swallowed
@@ -43,6 +47,8 @@ export class BrandingService {
       };
       this._applyColors(this._config.colors);
       this._applyFavicon(this._config.faviconUrl);
+      this.logoLightUrl.set(this._config.logoLightUrl);
+      this.logoDarkUrl.set(this._config.logoDarkUrl);
     } catch {
       // Branding endpoint unavailable — fall back to defaults silently
     }
@@ -51,6 +57,13 @@ export class BrandingService {
   /** Re-apply colors without a page reload. Called after admin saves changes. */
   applyColors(colors: BrandingColors | undefined): void {
     this._applyColors(colors);
+  }
+
+  /** Update logo URL signals after an admin upload so the sidenav refreshes
+   *  immediately without a page reload. Pass undefined to leave unchanged. */
+  applyLogoUrls(logoLightUrl?: string, logoDarkUrl?: string): void {
+    if (logoLightUrl !== undefined) this.logoLightUrl.set(logoLightUrl);
+    if (logoDarkUrl !== undefined) this.logoDarkUrl.set(logoDarkUrl);
   }
 
   private _applyColors(colors: BrandingColors | undefined): void {
