@@ -9,6 +9,8 @@ export interface BrandingColors {
   tertiary: string;
   sidebar_bg?: string;
   sidebar_bg_dark?: string;
+  chat_bg?: string;
+  chat_bg_dark?: string;
 }
 
 export interface BrandingConfig {
@@ -88,10 +90,12 @@ export class BrandingService {
         --color-tertiary-base: ${colors.tertiary};
         --app-sidebar-bg: ${colors.sidebar_bg ?? '#f3f4f6'};
         --app-topbar-bg: ${colors.sidebar_bg ?? '#f9fafb'};
+        --app-chat-bg: ${colors.chat_bg ?? '#f9fafb'};
       }
       html.dark {
         --app-sidebar-bg: ${colors.sidebar_bg_dark ?? '#111827'};
         --app-topbar-bg: ${colors.sidebar_bg_dark ?? '#111827'};
+        --app-chat-bg: ${colors.chat_bg_dark ?? '#111827'};
       }
     `;
   }
