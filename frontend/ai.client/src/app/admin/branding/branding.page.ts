@@ -154,6 +154,15 @@ export class BrandingPage implements OnInit {
     return `${this.configService.appApiUrl()}/admin/branding`;
   }
 
+  /** Resolve an API-relative asset path to a full URL the browser can fetch.
+   *  The backend now returns paths like ``/branding/asset/logo_light`` instead
+   *  of short-lived presigned URLs, so we prepend the API base. */
+  private _resolveAssetUrl(url?: string | null): string | undefined {
+    if (!url) return undefined;
+    if (url.startsWith('/')) return `${this.configService.appApiUrl()}${url}`;
+    return url;
+  }
+
   readonly DEFAULT_PRIMARY = '#0033a0';
   readonly DEFAULT_SECONDARY = '#d64309';
   readonly DEFAULT_TERTIARY = '#0072ce';
@@ -213,9 +222,9 @@ export class BrandingPage implements OnInit {
         if (cfg.colors.chat_bg) this.chatBg.set(cfg.colors.chat_bg);
         if (cfg.colors.chat_bg_dark) this.chatBgDark.set(cfg.colors.chat_bg_dark);
       }
-      this.logoLightUrl.set(cfg.logo_light_url);
-      this.logoDarkUrl.set(cfg.logo_dark_url);
-      this.faviconUrl.set(cfg.favicon_url);
+      this.logoLightUrl.set(this._resolveAssetUrl(cfg.logo_light_url));
+      this.logoDarkUrl.set(this._resolveAssetUrl(cfg.logo_dark_url));
+      this.faviconUrl.set(this._resolveAssetUrl(cfg.favicon_url));
     } catch { /* defaults remain */ }
   }
 
@@ -285,10 +294,10 @@ export class BrandingPage implements OnInit {
       const updated = await firstValueFrom(
         this.http.post<BrandingResponse>(`${this.api}/upload-logo`, formData)
       );
-      // Update preview URLs from the returned branding config
-      if (assetType === 'logo_light') this.logoLightUrl.set(updated.logo_light_url);
-      if (assetType === 'logo_dark') this.logoDarkUrl.set(updated.logo_dark_url);
-      if (assetType === 'favicon') this.faviconUrl.set(updated.favicon_url);
+      // Update preview URLs from the returned branding config (resolve relative paths)
+      if (assetType === 'logo_light') this.logoLightUrl.set(this._resolveAssetUrl(updated.logo_light_url));
+      if (assetType === 'logo_dark') this.logoDarkUrl.set(this._resolveAssetUrl(updated.logo_dark_url));
+      if (assetType === 'favicon') this.faviconUrl.set(this._resolveAssetUrl(updated.favicon_url));
       // Propagate logo URLs into BrandingService so the sidenav updates live
       this.brandingSvc.applyLogoUrls(updated.logo_light_url, updated.logo_dark_url);
       this.assetSaved.set(assetType);

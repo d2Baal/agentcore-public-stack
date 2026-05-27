@@ -43,9 +43,9 @@ export class BrandingService {
       );
       this._config = {
         colors: raw.colors,
-        logoLightUrl: raw.logo_light_url ?? undefined,
-        logoDarkUrl: raw.logo_dark_url ?? undefined,
-        faviconUrl: raw.favicon_url ?? undefined,
+        logoLightUrl: this._resolveAssetUrl(raw.logo_light_url),
+        logoDarkUrl: this._resolveAssetUrl(raw.logo_dark_url),
+        faviconUrl: this._resolveAssetUrl(raw.favicon_url),
       };
       this._applyColors(this._config.colors);
       this._applyFavicon(this._config.faviconUrl);
@@ -56,16 +56,35 @@ export class BrandingService {
     }
   }
 
+  /**
+   * Resolve a logo/favicon URL returned by the branding API.
+   *
+   * The API now returns API-relative paths (e.g. ``/branding/asset/logo_light``)
+   * instead of short-lived presigned S3 URLs.  Those paths must be prefixed with
+   * the app API base so CloudFront routes them to the ALB.
+   * Absolute URLs (legacy presigned URLs or external) are passed through unchanged.
+   */
+  private _resolveAssetUrl(url: string | null | undefined): string | undefined {
+    if (!url) return undefined;
+    if (url.startsWith('/')) return `${this.configService.appApiUrl()}${url}`;
+    return url;
+  }
+
   /** Re-apply colors without a page reload. Called after admin saves changes. */
   applyColors(colors: BrandingColors | undefined): void {
     this._applyColors(colors);
   }
 
   /** Update logo URL signals after an admin upload so the sidenav refreshes
-   *  immediately without a page reload. Pass undefined to leave unchanged. */
-  applyLogoUrls(logoLightUrl?: string, logoDarkUrl?: string): void {
-    if (logoLightUrl !== undefined) this.logoLightUrl.set(logoLightUrl);
-    if (logoDarkUrl !== undefined) this.logoDarkUrl.set(logoDarkUrl);
+   *  immediately without a page reload.
+   *
+   * Accepts ``null`` (JSON null from the API) as well as ``undefined`` (not
+   * provided). ``null`` and empty string are treated as "no logo" and leave the
+   * existing signal unchanged.  Only a non-empty string updates the signal.
+   */
+  applyLogoUrls(logoLightUrl?: string | null, logoDarkUrl?: string | null): void {
+    if (logoLightUrl) this.logoLightUrl.set(this._resolveAssetUrl(logoLightUrl));
+    if (logoDarkUrl) this.logoDarkUrl.set(this._resolveAssetUrl(logoDarkUrl));
   }
 
   private _applyColors(colors: BrandingColors | undefined): void {

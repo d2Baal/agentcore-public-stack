@@ -50,6 +50,7 @@ PUBLIC_ROUTE_PATTERNS: set[str] = {
     "/docs/oauth2-redirect",
     "/redoc",
     "/branding",  # Public branding config — intentionally unauthenticated so login page can apply custom theme.
+    "/branding/asset/{asset_type}",  # Public asset redirect — stable URL for logo/favicon <img src>, no auth needed.
 }
 
 

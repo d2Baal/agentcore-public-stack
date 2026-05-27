@@ -43,11 +43,14 @@ async def get_branding_response() -> BrandingConfigResponse:
     config = await repository.get_branding()
     if config is None:
         return BrandingConfigResponse()
+    # Return stable API-relative paths instead of short-lived presigned GET URLs.
+    # The /branding/asset/{type} endpoint generates a fresh presigned URL on
+    # every browser request, so <img src> tags never expire.
     return BrandingConfigResponse(
         colors=config.colors,
-        logo_light_url=_presigned_get_url(config.logo_light_s3_key) if config.logo_light_s3_key else None,
-        logo_dark_url=_presigned_get_url(config.logo_dark_s3_key) if config.logo_dark_s3_key else None,
-        favicon_url=_presigned_get_url(config.favicon_s3_key) if config.favicon_s3_key else None,
+        logo_light_url="/branding/asset/logo_light" if config.logo_light_s3_key else None,
+        logo_dark_url="/branding/asset/logo_dark" if config.logo_dark_s3_key else None,
+        favicon_url="/branding/asset/favicon" if config.favicon_s3_key else None,
         updated_at=config.updated_at,
         updated_by=config.updated_by,
     )
